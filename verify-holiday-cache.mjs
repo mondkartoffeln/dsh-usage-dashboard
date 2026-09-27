@@ -126,10 +126,12 @@ await scenario("缓存 2 小时前、今年明年都已覆盖 → 不联网", { 
 
 console.log("");
 console.log("── 公布窗口（决定明年那份会不会被抓到）──");
-// 固定到 11 月 15 日：已进入 10 月窗口
+// 实测 9 年通知的月份分布：10 月 ×2、11 月 ×5、12 月 ×2，最晚 2018-12-06。
+// 所以窗口从 11 月起 —— 到最晚那次还留 35 天余量，而新年的假从 1/1 才开始。
+const OCT = Date.UTC(realYear, 9, 15, 4, 0, 0);
 const NOV = Date.UTC(realYear, 10, 15, 4, 0, 0);
 const SEP = Date.UTC(realYear, 8, 15, 4, 0, 0);
-const inWindowNow = realMonth >= 10;
+const inWindowNow = realMonth >= 11;
 await scenario(
   `缺明年 + 现在 ${realMonth} 月 → ${inWindowNow ? "联网（窗口内）" : "不联网（未到窗口）"}`,
   { ageHours: FRESH_H, years: [realYear] },
@@ -138,6 +140,8 @@ await scenario(
 await scenario("11 月、缓存只有今年 → 联网（去抓明年）", { ageHours: OLD_H, years: [realYear] }, true, NOV);
 await scenario("11 月、老格式缓存（无 years 字段）→ 联网", { ageHours: OLD_H }, true, NOV);
 await scenario("11 月、刚抓过且已覆盖明年 → 不联网", { ageHours: FRESH_H, years: [realYear, realYear + 1] }, false, NOV);
+// ★ 关键对照：窗口起点从 10 月挪到 11 月之后，10 月**不该**再联网了
+await scenario("10 月、缺明年 → 不联网（窗口已挪到 11 月，10 月不白试）", { ageHours: FRESH_H, years: [realYear] }, false, OCT);
 await scenario("9 月、同样缺明年 → 不联网（还没到窗口，抓也白抓）", { ageHours: FRESH_H, years: [realYear] }, false, SEP);
 
 console.log("");
