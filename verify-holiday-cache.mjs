@@ -145,6 +145,27 @@ await scenario("10 月、缺明年 → 不联网（窗口已挪到 11 月，10 �
 await scenario("9 月、同样缺明年 → 不联网（还没到窗口，抓也白抓）", { ageHours: FRESH_H, years: [realYear] }, false, SEP);
 
 console.log("");
+console.log("── 跨年：当年缺了必须抓（这是一个真出现过的漏）──");
+// ★ 修之前只检查 `year + 1`，于是这条路径整年漏掉：
+//   12 月底缓存是新鲜的、但当年安排还没公布 → 缓存只覆盖 [去年]
+//   → 到了 1 月变成「检查明年 + 月份不满足」→ **永远不抓**
+//   → 结果**当年整年的法定节假日都拿不到**，而界面上看不出来。
+//   当时只是靠「缓存 30 天过期」碰巧兜住；缓存新鲜时就漏。
+const JAN = Date.UTC(realYear + 1, 0, 15, 4, 0, 0); // 明年 1 月 15 日
+await scenario(
+  "1 月、缓存很新鲜但缺**当年** → 联网（不看月份）",
+  { ageHours: FRESH_H, years: [realYear] },
+  true,
+  JAN
+);
+await scenario(
+  "1 月、当年与明年都已覆盖 → 不联网",
+  { ageHours: FRESH_H, years: [realYear, realYear + 1] },
+  false,
+  JAN
+);
+
+console.log("");
 if (failed) {
   console.log(`${failed} 项失败`);
   process.exit(1);
