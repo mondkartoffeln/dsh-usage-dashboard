@@ -43,7 +43,8 @@ const code = lines.slice(a0, a1).join("\n") + "\n" + lines.slice(b0, b1).join("\
 let M;
 try {
   M = new Function(
-    code + "\n; return { periodAt, nextBoundary, isBjWeekend, isCnHoliday, isBjOffPeakDay, bjDayLabel };"
+    code + "\n; return { periodAt, nextBoundary, isBjWeekend, isCnHoliday, isBjOffPeakDay, bjDayLabel," +
+    " setExtra: (s) => { CN_HOLIDAY_EXTRA = s; } };"
   )();
 } catch (e) {
   console.error("抽出的区段执行失败：" + e.message);
@@ -119,6 +120,22 @@ console.log("── 边界推算 ──");
   // 长假里找不到峰时的兜底：春节连休 9 天 > 原来的搜索上限 3 天
   const nb = M.nextBoundary(bj(2026, 10, 5, 10));
   check("长假中不会因搜索上限返回错误边界", nb.delta > 0 && nb.delta <= 10 * 24 * 3600000, `${nb.delta / 3600000}h`);
+}
+
+console.log("── 自动更新路径（宿主下发的日历真的会喂进判定吗）──");
+{
+  // 基线只到 2026 年。2027-01-01 在基线里应判「不是节假日」。
+  // ★ 这条验证的是「自动更新」的关键一环：宿主联网取到的日历
+  //   （经 /dsh-client-ui-usage/holidays 下发）必须真的改变判定结果，
+  //   否则更新就只是写了个文件、没接上逻辑。
+  check("基线未覆盖 2027 → 2027-01-01 判为非节假日", !M.isCnHoliday(bj(2027, 1, 1, 10)), "基线只到 2026");
+  // 模拟宿主下发 2027 元旦
+  M.setExtra(new Set(["2027-01-01", "2027-01-02", "2027-01-03"]));
+  check("宿主下发 2027 元旦后 → 2027-01-01 判为节假日", M.isCnHoliday(bj(2027, 1, 1, 10)), "extra 生效");
+  check("宿主下发的日历不影响未下发的日期", !M.isCnHoliday(bj(2027, 1, 4, 10)), "1/4 仍非节假日");
+  // 基线仍然有效（并集语义：extra 不会顶掉基线）
+  check("下发 extra 之后基线依旧生效（并集而非覆盖）", M.isCnHoliday(bj(2026, 10, 1, 10)), "2026 国庆仍在");
+  M.setExtra(new Set());
 }
 
 console.log("");
